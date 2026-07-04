@@ -81,6 +81,9 @@ final class ChatViewModel: ObservableObject {
         } catch {
             // Keep showing what we have; the next tick retries.
         }
+        // Drop expired messages from the cache so the session's memory
+        // footprint doesn't grow and nothing can resurface past its TTL.
+        allMessages.removeAll { Date().timeIntervalSince($0.sentAt) >= MessageRules.timeToLive }
         messages = MessageRules.visible(allMessages, zones: Set(zones))
     }
 

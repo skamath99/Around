@@ -22,7 +22,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.sank.around
         CODE_SIGN_ENTITLEMENTS: App/Around.entitlements
         SWIFT_VERSION: "5.10"
-        MARKETING_VERSION: "0.1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: 1
         TARGETED_DEVICE_FAMILY: "1"
     info:
