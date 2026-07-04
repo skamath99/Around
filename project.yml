@@ -1,0 +1,62 @@
+name: Around
+options:
+  bundleIdPrefix: com.sank
+packages:
+  AroundCore:
+    path: AroundCore
+settings:
+  base:
+    DEVELOPMENT_TEAM: 547M5QUW76
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Around:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - App
+    dependencies:
+      - package: AroundCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sank.around
+        CODE_SIGN_ENTITLEMENTS: App/Around.entitlements
+        SWIFT_VERSION: "5.10"
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: 1
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: App/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UIBackgroundModes: [remote-notification]
+        NSLocationWhenInUseUsageDescription: >-
+          Around uses your location only to find your ~150 m chat zone.
+          Your exact coordinates never leave this device — only the zone
+          code is attached to messages.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+  AroundUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - UITests
+    dependencies:
+      - target: Around
+      - package: AroundCore
+    settings:
+      base:
+        SWIFT_VERSION: "5.10"
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Around:
+    build:
+      targets:
+        Around: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - AroundUITests

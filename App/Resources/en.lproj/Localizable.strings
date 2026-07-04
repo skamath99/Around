@@ -1,0 +1,4 @@
+/* CloudKit push notification templates. Args are injected server-side
+   from the subscription's notificationInfo alert/title localization args. */
+"AROUND_NOTIFICATION_TITLE" = "%1$@ · nearby";
+"AROUND_NOTIFICATION_BODY" = "%1$@";
