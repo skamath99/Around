@@ -83,16 +83,23 @@ Test conveniences: `--reset-data`, `--auto-onboard`, `AROUND_HANDLE`,
 |---|---|---|
 | ![](screenshots/01-onboarding.png) | ![](screenshots/02-chat.png) | ![](screenshots/e2e-notification-banner.png) |
 
-## CloudKit setup (one-time, before device testing)
+## CloudKit setup (done for Development — July 2026)
 
-1. Open the project in Xcode with the team account signed in; automatic
-   signing registers the `iCloud.com.sank.around` container.
-2. Run the app once on a device/simulator signed into iCloud and send a
-   message — development JIT schema creates the `Message` record type.
-3. In [CloudKit Console](https://icloud.developer.apple.com) → Development →
-   Indexes, ensure `Message` has **queryable** indexes on `geohash`,
-   `senderID`, and **queryable + sortable** on `sentAt`.
-4. Deploy the schema to Production before TestFlight.
+Already provisioned: the `iCloud.com.sank.around` container is registered,
+the `Message` record type exists (text, senderID, senderName, geohash:
+String; sentAt: Date/Time), and Development indexes are in place —
+`geohash` + `senderID` queryable, `sentAt` queryable + sortable. The real
+fetch path is verified: a record created in CloudKit Console appears in
+the app on a simulator (see `screenshots/e2e-cloudkit-fetch.png`; run it
+yourself with `CloudKitSmokeTests`).
+
+Still pending:
+
+1. **Send path on a real account** — writing (and saving zone push
+   subscriptions) requires a device/simulator signed into iCloud; public-DB
+   reads don't. Send a message from a signed-in device to verify.
+2. **Deploy the schema to Production** (CloudKit Console → Deploy Schema
+   Changes) before TestFlight.
 
 Known follow-ups: server-side cleanup of expired records (a tiny cron on the
 Pi hitting CloudKit Web Services), report/block for App Store guideline 1.2,
