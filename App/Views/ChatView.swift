@@ -6,6 +6,7 @@ struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
     @State private var draft = ""
     @State private var showSettings = false
+    @FocusState private var composeFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -79,22 +80,37 @@ struct ChatView: View {
                             : "Checking for messages nearby…"
                     )
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .simultaneousGesture(TapGesture().onEnded { composeFocused = false })
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 10) {
-                            ForEach(viewModel.messages) { message in
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
+                                let previous = index > 0 ? viewModel.messages[index - 1] : nil
+                                let next = index + 1 < viewModel.messages.count ? viewModel.messages[index + 1] : nil
+                                // Continuation messages hide their header; the last message of a
+                                // group (nothing after it continues) keeps the "fades …" footer.
+                                let continuesGroup = MessageRules.continuesGroup(message, after: previous)
+                                let nextContinuesGroup = next.map { MessageRules.continuesGroup($0, after: message) } ?? false
                                 MessageBubble(
                                     message: message,
-                                    isOwn: message.senderID == model.senderID
+                                    isOwn: message.senderID == model.senderID,
+                                    showsHeader: !continuesGroup,
+                                    showsFooter: !nextContinuesGroup
                                 )
+                                .padding(.top, continuesGroup ? 2 : (index == 0 ? 0 : 10))
                                 .id(message.id)
                             }
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 8)
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .accessibilityIdentifier("messageList")
+                    // Tapping the message area (not a bubble's context menu or a button) drops the keyboard.
+                    .simultaneousGesture(TapGesture().onEnded { composeFocused = false })
                     .onChange(of: viewModel.messages.last?.id) { _, lastID in
                         if let lastID {
                             withAnimation { proxy.scrollTo(lastID, anchor: .bottom) }
@@ -118,6 +134,7 @@ struct ChatView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 18))
+                .focused($composeFocused)
                 .accessibilityIdentifier("composeField")
 
             Button {
@@ -153,16 +170,20 @@ struct ChatView: View {
 struct MessageBubble: View {
     let message: Message
     let isOwn: Bool
+    var showsHeader: Bool = true
+    var showsFooter: Bool = true
 
     var body: some View {
         VStack(alignment: isOwn ? .trailing : .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                Text(isOwn ? "you" : message.senderName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(isOwn ? .teal : .secondary)
-                Text(relativeTime)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+            if showsHeader {
+                HStack(spacing: 6) {
+                    Text(isOwn ? "you" : message.senderName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(isOwn ? .teal : .secondary)
+                    Text(relativeTime)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
             Text(message.text)
                 .padding(.horizontal, 13)
@@ -171,9 +192,18 @@ struct MessageBubble: View {
                     isOwn ? AnyShapeStyle(.teal.opacity(0.22)) : AnyShapeStyle(.quaternary.opacity(0.6)),
                     in: RoundedRectangle(cornerRadius: 16)
                 )
-            Text("fades \(fadesIn)")
-                .font(.caption2)
-                .foregroundStyle(.quaternary)
+                .contextMenu {
+                    Button {
+                        UIPasteboard.general.string = message.text
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                    }
+                }
+            if showsFooter {
+                Text("fades \(fadesIn)")
+                    .font(.caption2)
+                    .foregroundStyle(.quaternary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: isOwn ? .trailing : .leading)
         .accessibilityElement(children: .combine)

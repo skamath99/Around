@@ -22,13 +22,14 @@ enum E2E {
     static func inject(
         text: String,
         into dir: String,
+        senderID: String = "other-device",
         senderName: String = "hazel-otter-7",
         zone: String? = nil,
         sentAt: Date = .now
     ) throws {
         let message = Message(
             text: text,
-            senderID: "other-device",
+            senderID: senderID,
             senderName: senderName,
             geohash: zone ?? self.zone,
             sentAt: sentAt

@@ -31,8 +31,20 @@ public enum MessageRules {
     /// Messages fade 24 hours after being sent.
     public static let timeToLive: TimeInterval = 24 * 60 * 60
 
+    /// Consecutive messages from the same sender within this window are grouped visually.
+    public static let groupingWindow: TimeInterval = 120
+
     public static func expiryDate(of message: Message) -> Date {
         message.sentAt.addingTimeInterval(timeToLive)
+    }
+
+    /// True when `message` continues a visual group started by `previous`: same
+    /// sender, sent after `previous`, and within `groupingWindow` of it.
+    public static func continuesGroup(_ message: Message, after previous: Message?) -> Bool {
+        guard let previous else { return false }
+        guard message.senderID == previous.senderID else { return false }
+        let gap = message.sentAt.timeIntervalSince(previous.sentAt)
+        return gap >= 0 && gap <= groupingWindow
     }
 
     /// Filters to unexpired messages in the given zones, deduplicates by id,
