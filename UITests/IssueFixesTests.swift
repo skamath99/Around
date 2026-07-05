@@ -5,11 +5,13 @@ import AroundCore
 /// zone-code copy, message copy, bubble grouping), with edge cases: grouping
 /// window boundaries, interleaved senders, cross-zone groups, live messages
 /// joining a group, and multiline/emoji copy fidelity.
-/// NOTE: tests are lettered to force execution order. Cross-process
-/// pasteboard access (the runner reading UIPasteboard) can wedge the
-/// simulator's pasteboardd; once wedged, any text-field *focus* in the app
-/// blocks forever on UIKit's pasteboard cache queue. Keyboard/typing tests
-/// therefore run before anything that reads the pasteboard.
+/// NOTE: tests are lettered to force execution order, and copy assertions
+/// paste back into the app instead of reading UIPasteboard from the runner:
+/// cross-process pasteboard reads are denied nondeterministically by iOS
+/// paste privacy (PBErrorDomain 13) and can wedge the simulator's
+/// pasteboardd — once wedged, any text-field *focus* in the app blocks
+/// forever on UIKit's pasteboard cache queue. Same-app pastes prompt no
+/// permission alert. Keyboard/typing tests still run first as a belt.
 final class IssueFixesTests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -35,8 +37,10 @@ final class IssueFixesTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["keyboard test message"].waitForExistence(timeout: 5))
         app.composeField.tap()
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 5))
+        saveScreenshot(named: "e2e-keyboard-up")
         app.scrollViews["messageList"].tap()
         waitForKeyboardDismissal(app)
+        saveScreenshot(named: "e2e-keyboard-dismissed")
 
         // Long-press context menu still works while the keyboard is up.
         app.composeField.tap()
@@ -63,9 +67,16 @@ final class IssueFixesTests: XCTestCase {
 
         let copy = app.buttons["Copy"]
         XCTAssertTrue(copy.waitForExistence(timeout: 5), "long press should open a Copy menu")
+        saveScreenshot(named: "e2e-copy-context-menu")
         copy.tap()
 
-        XCTAssertEqual(readPasteboard(), text, "copied text must match byte-exact incl. newline and emoji")
+        // Verify by pasting into the compose field (same-app paste: no
+        // permission prompt, unlike reading UIPasteboard from the runner).
+        pasteIntoFocusedField(app, element: app.composeField)
+        XCTAssertEqual(
+            app.composeField.value as? String, text,
+            "copied text must match byte-exact incl. newline and emoji"
+        )
     }
 
     // MARK: - #2 + #3 settings clarity and zone-code copy
@@ -95,7 +106,12 @@ final class IssueFixesTests: XCTestCase {
         let copyButton = app.buttons["copyZoneButton"]
         XCTAssertTrue(copyButton.waitForExistence(timeout: 5))
         copyButton.tap()
-        XCTAssertEqual(readPasteboard(), E2E.zone, "pasteboard should hold exactly the zone code")
+        // Verify by pasting into the handle field (same-app paste).
+        pasteIntoFocusedField(app, element: handleField)
+        XCTAssertTrue(
+            ((handleField.value as? String) ?? "").contains(E2E.zone),
+            "pasteboard should hold the zone code"
+        )
     }
 
     // MARK: - #5 grouping: boundaries, interleaving, cross-zone, live updates
@@ -158,12 +174,14 @@ final class IssueFixesTests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label == %@", name)).count
     }
 
-    /// Reads the simulator-wide general pasteboard, dismissing the paste
-    /// permission alert if iOS raises one for the test runner.
-    private func readPasteboard() -> String? {
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let allow = springboard.alerts.buttons["Allow Paste"]
-        if allow.waitForExistence(timeout: 2) { allow.tap() }
-        return UIPasteboard.general.string
+    /// Long-presses a text field and taps Paste in the edit menu.
+    private func pasteIntoFocusedField(_ app: XCUIApplication, element: XCUIElement) {
+        element.tap()
+        element.press(forDuration: 1.2)
+        let paste = app.menuItems["Paste"].exists ? app.menuItems["Paste"] : app.buttons["Paste"]
+        XCTAssertTrue(paste.waitForExistence(timeout: 5), "edit menu should offer Paste")
+        paste.tap()
+        // Give the paste a beat to land before reading the field value.
+        _ = app.keyboards.element.waitForExistence(timeout: 2)
     }
 }
