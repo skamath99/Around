@@ -83,6 +83,46 @@ final class MessageRulesTests: XCTestCase {
         let m = message(ageHours: 0)
         XCTAssertEqual(MessageRules.expiryDate(of: m), m.sentAt.addingTimeInterval(86_400))
     }
+
+    private func groupMessage(senderID: String, secondsAfter offset: TimeInterval) -> Message {
+        Message(
+            id: UUID().uuidString,
+            text: "hi",
+            senderID: senderID,
+            senderName: "amber-fox-42",
+            geohash: zone,
+            sentAt: now.addingTimeInterval(offset)
+        )
+    }
+
+    func testContinuesGroupSameSenderWithinWindow() {
+        let first = groupMessage(senderID: "a", secondsAfter: 0)
+        let second = groupMessage(senderID: "a", secondsAfter: 60)
+        XCTAssertTrue(MessageRules.continuesGroup(second, after: first))
+    }
+
+    func testContinuesGroupDifferentSender() {
+        let first = groupMessage(senderID: "a", secondsAfter: 0)
+        let second = groupMessage(senderID: "b", secondsAfter: 60)
+        XCTAssertFalse(MessageRules.continuesGroup(second, after: first))
+    }
+
+    func testContinuesGroupSameSenderBeyondWindow() {
+        let first = groupMessage(senderID: "a", secondsAfter: 0)
+        let second = groupMessage(senderID: "a", secondsAfter: 121)
+        XCTAssertFalse(MessageRules.continuesGroup(second, after: first))
+    }
+
+    func testContinuesGroupNilPrevious() {
+        let message = groupMessage(senderID: "a", secondsAfter: 0)
+        XCTAssertFalse(MessageRules.continuesGroup(message, after: nil))
+    }
+
+    func testContinuesGroupOutOfOrderTimestamps() {
+        let first = groupMessage(senderID: "a", secondsAfter: 60)
+        let second = groupMessage(senderID: "a", secondsAfter: 0) // sent before `first`
+        XCTAssertFalse(MessageRules.continuesGroup(second, after: first))
+    }
 }
 
 final class HandleGeneratorTests: XCTestCase {
